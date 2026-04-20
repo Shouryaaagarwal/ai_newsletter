@@ -245,11 +245,135 @@
 
 
 
+// import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
+// import { CheerioWebBaseLoader } from "@langchain/community/document_loaders/web/cheerio";
+// import { Document } from "@langchain/core/documents";
+// import RSSParser from "rss-parser";
+// import { SOURCE_MAP, htmlSources } from "@/app/data/sources";
+// import { createVectorStore } from "./vectorstore";
+
+// const rssParser = new RSSParser({
+//   customFields: { item: ["description", "content:encoded", "content"] },
+// });
+
+// const splitter = new RecursiveCharacterTextSplitter({
+//   chunkSize: 800,
+//   chunkOverlap: 100,
+// });
+
+// function cleanText(raw: string): string {
+//   return raw
+//     .replace(/<!\[CDATA\[|\]\]>/g, "")
+//     .replace(/<[^>]*>/g, " ")
+//     .replace(/&[a-z#0-9]+;/gi, " ")
+//     .replace(/https?:\/\/\S+/g, "")
+//     .replace(/\s+/g, " ")
+//     .trim();
+// }
+
+// function isQualityContent(text: string): boolean {
+//   if (text.length < 150) return false;
+//   if (/^\d+\s+(days?|hours?|minutes?)\s+ago/i.test(text)) return false;
+//   if ((text.match(/•/g) || []).length > 3) return false;
+//   if (text.split(" ").length < 30) return false;
+//   return true;
+// }
+
+// export async function loadFromRSS(url: string): Promise<Document[]> {
+//   const feed = await rssParser.parseURL(url);
+//   const docs: Document[] = [];
+
+//   for (const item of feed.items) {
+//     const raw =
+//       (item as any)["content:encoded"] ||
+//       (item as any)["content"] ||
+//       item.summary ||
+//       item.contentSnippet ||
+//       item.title || "";
+
+//     const text = cleanText(raw);
+//     if (!isQualityContent(text)) continue;
+
+//     docs.push(new Document({
+//       pageContent: text,
+//       metadata: {
+//         source: url,
+//         title: item.title || "",
+//         link: item.link || "",
+//         pubDate: item.pubDate || "",
+//       },
+//     }));
+//   }
+
+//   console.log(`[RSS] ${url} → ${docs.length} items`);
+//   return docs;
+// }
+
+// export async function loadFromHTML(url: string): Promise<Document[]> {
+//   const loader = new CheerioWebBaseLoader(url, {
+//     selector: "p, h1, h2, h3, article, .post-content, .entry-content",
+//   });
+//   const docs = await loader.load();
+//   return docs
+//     .map((doc) => ({ ...doc, pageContent: cleanText(doc.pageContent) }))
+//     .filter((doc) => isQualityContent(doc.pageContent));
+// }
+
+// export async function splitDocs(docs: Document[]): Promise<Document[]> {
+//   const filtered = docs.filter((d) => isQualityContent(d.pageContent));
+//   const chunks = await splitter.splitDocuments(filtered);
+//   const quality = chunks.filter((c) => isQualityContent(c.pageContent));
+//   console.log(`[Splitter] ${chunks.length} chunks → ${quality.length} quality`);
+//   return quality;
+// }
+
+// // ✅ Main callable function used by cron + API route
+// export async function runIngestion(): Promise<{
+//   totalChunks: number;
+//   perSource: Record<string, number | string>;
+// }> {
+//   const allDocs: Document[] = [];
+//   const perSource: Record<string, number | string> = {};
+
+//   for (const url of SOURCE_MAP) {
+//     try {
+//       const docs = await loadFromRSS(url);
+//       const chunks = await splitDocs(docs);
+//       allDocs.push(...chunks);
+//       perSource[url] = chunks.length;
+//     } catch (err: any) {
+//       console.error(`[Ingest] RSS error ${url}:`, err.message);
+//       perSource[url] = `ERROR: ${err.message}`;
+//     }
+//   }
+
+//   for (const url of htmlSources) {
+//     try {
+//       const docs = await loadFromHTML(url);
+//       const chunks = await splitDocs(docs);
+//       allDocs.push(...chunks);
+//       perSource[url] = chunks.length;
+//     } catch (err: any) {
+//       console.error(`[Ingest] HTML error ${url}:`, err.message);
+//       perSource[url] = `ERROR: ${err.message}`;
+//     }
+//   }
+
+//   if (allDocs.length === 0) {
+//     throw new Error("No documents loaded from any source");
+//   }
+
+//   await createVectorStore(allDocs);
+//   return { totalChunks: allDocs.length, perSource };
+// }   
+
+
+
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import { CheerioWebBaseLoader } from "@langchain/community/document_loaders/web/cheerio";
 import { Document } from "@langchain/core/documents";
 import RSSParser from "rss-parser";
-import { rssSources, htmlSources } from "@/app/data/sources";
+import { SOURCE_MAP, htmlSources } from "@/app/data/sources";
 import { createVectorStore } from "./vectorstore";
 
 const rssParser = new RSSParser({
@@ -261,6 +385,7 @@ const splitter = new RecursiveCharacterTextSplitter({
   chunkOverlap: 100,
 });
 
+// 🔥 CLEAN TEXT
 function cleanText(raw: string): string {
   return raw
     .replace(/<!\[CDATA\[|\]\]>/g, "")
@@ -271,6 +396,7 @@ function cleanText(raw: string): string {
     .trim();
 }
 
+// 🔥 QUALITY FILTER
 function isQualityContent(text: string): boolean {
   if (text.length < 150) return false;
   if (/^\d+\s+(days?|hours?|minutes?)\s+ago/i.test(text)) return false;
@@ -279,55 +405,78 @@ function isQualityContent(text: string): boolean {
   return true;
 }
 
-export async function loadFromRSS(url: string): Promise<Document[]> {
+// 🔥 ONLY LAST 24 HOURS
+function isRecent(pubDate?: string): boolean {
+  if (!pubDate) return true;
+  const date = new Date(pubDate);
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  return date >= cutoff;
+}
+
+// 🔥 LOAD RSS WITH DATE FILTER
+export async function loadFromRSS(url: string, topic: string): Promise<Document[]> {
   const feed = await rssParser.parseURL(url);
   const docs: Document[] = [];
 
   for (const item of feed.items) {
+    if (!isRecent(item.pubDate)) continue;
+
     const raw =
       (item as any)["content:encoded"] ||
       (item as any)["content"] ||
       item.summary ||
       item.contentSnippet ||
-      item.title || "";
+      item.title ||
+      "";
 
     const text = cleanText(raw);
     if (!isQualityContent(text)) continue;
 
-    docs.push(new Document({
-      pageContent: text,
-      metadata: {
-        source: url,
-        title: item.title || "",
-        link: item.link || "",
-        pubDate: item.pubDate || "",
-      },
-    }));
+    docs.push(
+      new Document({
+        pageContent: text,
+        metadata: {
+          source: url,
+          title: item.title || "",
+          link: item.link || "",
+          pubDate: item.pubDate || "",
+          topic, // 🔥 CRITICAL
+        },
+      })
+    );
   }
 
-  console.log(`[RSS] ${url} → ${docs.length} items`);
+  console.log(`[RSS] ${topic} | ${url} → ${docs.length} items`);
   return docs;
 }
 
+// 🔥 HTML LOADER
 export async function loadFromHTML(url: string): Promise<Document[]> {
   const loader = new CheerioWebBaseLoader(url, {
     selector: "p, h1, h2, h3, article, .post-content, .entry-content",
   });
+
   const docs = await loader.load();
+
   return docs
-    .map((doc) => ({ ...doc, pageContent: cleanText(doc.pageContent) }))
+    .map((doc) => ({
+      ...doc,
+      pageContent: cleanText(doc.pageContent),
+    }))
     .filter((doc) => isQualityContent(doc.pageContent));
 }
 
+// 🔥 SPLITTER
 export async function splitDocs(docs: Document[]): Promise<Document[]> {
   const filtered = docs.filter((d) => isQualityContent(d.pageContent));
   const chunks = await splitter.splitDocuments(filtered);
   const quality = chunks.filter((c) => isQualityContent(c.pageContent));
-  console.log(`[Splitter] ${chunks.length} chunks → ${quality.length} quality`);
+
+  console.log(`[Splitter] ${chunks.length} → ${quality.length}`);
   return quality;
 }
 
-// ✅ Main callable function used by cron + API route
+// 🚀 MAIN INGEST FUNCTION
 export async function runIngestion(): Promise<{
   totalChunks: number;
   perSource: Record<string, number | string>;
@@ -335,26 +484,34 @@ export async function runIngestion(): Promise<{
   const allDocs: Document[] = [];
   const perSource: Record<string, number | string> = {};
 
-  for (const url of rssSources) {
-    try {
-      const docs = await loadFromRSS(url);
-      const chunks = await splitDocs(docs);
-      allDocs.push(...chunks);
-      perSource[url] = chunks.length;
-    } catch (err: any) {
-      console.error(`[Ingest] RSS error ${url}:`, err.message);
-      perSource[url] = `ERROR: ${err.message}`;
+  // 🔥 FIXED: iterate properly
+  for (const [topic, urls] of Object.entries(SOURCE_MAP)) {
+    for (const url of urls) {
+      try {
+        const docs = await loadFromRSS(url, topic);
+        const chunks = await splitDocs(docs);
+
+        allDocs.push(...chunks);
+        perSource[`${topic}:${url}`] = chunks.length;
+
+      } catch (err: any) {
+        console.error(`[Ingest] ${url}:`, err.message);
+        perSource[`${topic}:${url}`] = `ERROR: ${err.message}`;
+      }
     }
   }
 
+  // HTML sources (optional)
   for (const url of htmlSources) {
     try {
       const docs = await loadFromHTML(url);
       const chunks = await splitDocs(docs);
+
       allDocs.push(...chunks);
       perSource[url] = chunks.length;
+
     } catch (err: any) {
-      console.error(`[Ingest] HTML error ${url}:`, err.message);
+      console.error(`[Ingest] HTML ${url}:`, err.message);
       perSource[url] = `ERROR: ${err.message}`;
     }
   }
@@ -363,6 +520,12 @@ export async function runIngestion(): Promise<{
     throw new Error("No documents loaded from any source");
   }
 
+  console.log(`[Ingest] Total chunks: ${allDocs.length}`);
+
   await createVectorStore(allDocs);
-  return { totalChunks: allDocs.length, perSource };
+
+  return {
+    totalChunks: allDocs.length,
+    perSource,
+  };
 }

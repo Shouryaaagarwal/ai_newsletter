@@ -94,7 +94,7 @@ export async function researchAgent(
   console.log(`[ResearchAgent:${state.topic}] Starting retrieval...`);
 
   const vectorStore = await getVectorStore();
-  const retriever = getRetriever(vectorStore);
+  const retriever = getRetriever(vectorStore, state.topic);
 
   const query = TOPIC_QUERIES[state.topic];
   if (!query) {

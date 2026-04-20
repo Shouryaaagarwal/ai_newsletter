@@ -24,11 +24,12 @@
 
 
 
-export function getRetriever(vectorStore: any) {
+export function getRetriever(vectorStore: any, topic:string) {
   // Increased k from 5 → 15 to give the LLM enough real context
   const retriever = vectorStore.asRetriever({
     k: 15,
-    searchType: "similarity",
+    searchType: "similarity",  
+    topic,
   });
 
   const originalInvoke = retriever.invoke.bind(retriever);
