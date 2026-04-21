@@ -42,23 +42,104 @@
 // }   
 
 
+// import { llm } from "../llm";
+// import { NewsletterState } from "./types";
+
+// // Deduplicate + compress context before sending to LLM
+// function compressContext(docs: any[], maxChars = 1200): string {
+//   const seen = new Set<string>();
+//   let result = "";
+
+//   for (const doc of docs) {
+//     // Deduplicate by first 60 chars
+//     const key = doc.pageContent.slice(0, 60).trim();
+//     if (seen.has(key)) continue;
+//     seen.add(key);
+
+//     // Only take first 300 chars of each chunk — enough for facts
+//     const snippet = doc.pageContent.slice(0, 300).trim();
+//     if (!snippet || snippet.length < 80) continue;
+
+//     if (result.length + snippet.length > maxChars) break;
+//     result += snippet + "\n\n";
+//   }
+
+//   return result.trim();
+// }
+
+// export async function writerAgent(
+//   state: NewsletterState
+// ): Promise<Partial<NewsletterState>> {
+//   console.log(`[WriterAgent:${state.topic}] Generating section...`);
+
+//   const context = compressContext(state.docs);
+
+//   // Skip immediately if no usable content
+//   if (!context || context.length < 100) {
+//     console.log(`[WriterAgent:${state.topic}] No usable context — skipping`);
+//     return { draft: "" };
+//   }
+
+//   // Single combined user message — no separate system message saves tokens
+//   const response = await llm.invoke([
+//     {
+//       role: "user",
+//       content: `Write one newsletter section about ${state.topic.toUpperCase()}.
+
+// STRICT RULES:
+// - ONLY use facts from context
+// - DO NOT infer or assume
+// - DO NOT generalize beyond context
+// - If information is insufficient → return empty
+
+// STYLE:
+// - 2 short paragraphs
+// - Clear, factual, concise
+// - No markdown
+
+// Context:
+// ${context}
+
+// Write section now:`
+//     },
+//   ]);
+
+//   const draft = response.content as string;
+
+//   // Reject drafts that are clearly low quality
+//   if (
+//     draft.length < 80 ||
+//     /no information/i.test(draft) ||
+//     /there is no/i.test(draft) ||
+//     /context does not/i.test(draft)
+//   ) {
+//     console.log(`[WriterAgent:${state.topic}] Low quality draft — skipping`);
+//     return { draft: "" };
+//   }
+
+//   console.log(`[WriterAgent:${state.topic}] Done — ${draft.length} chars`);
+//   return { draft };
+// }  
+
+
+
 import { llm } from "../llm";
 import { NewsletterState } from "./types";
 
-// Deduplicate + compress context before sending to LLM
-function compressContext(docs: any[], maxChars = 1200): string {
+// 🔥 Better context compression
+function compressContext(docs: any[], maxChars = 2000): string {
   const seen = new Set<string>();
   let result = "";
 
   for (const doc of docs) {
-    // Deduplicate by first 60 chars
-    const key = doc.pageContent.slice(0, 60).trim();
+    const text = doc.pageContent.trim();
+    if (!text || text.length < 80) continue;
+
+    const key = text.slice(0, 80);
     if (seen.has(key)) continue;
     seen.add(key);
 
-    // Only take first 300 chars of each chunk — enough for facts
-    const snippet = doc.pageContent.slice(0, 300).trim();
-    if (!snippet || snippet.length < 80) continue;
+    const snippet = text.slice(0, 400);
 
     if (result.length + snippet.length > maxChars) break;
     result += snippet + "\n\n";
@@ -74,28 +155,31 @@ export async function writerAgent(
 
   const context = compressContext(state.docs);
 
-  // Skip immediately if no usable content
   if (!context || context.length < 100) {
-    console.log(`[WriterAgent:${state.topic}] No usable context — skipping`);
+    console.log(`[WriterAgent:${state.topic}] Weak context — skipping`);
     return { draft: "" };
   }
 
-  // Single combined user message — no separate system message saves tokens
   const response = await llm.invoke([
     {
       role: "user",
-      content: `Write one newsletter section about ${state.topic.toUpperCase()}.
+      content: `Write a factual newsletter section about ${state.topic.replace("_", " ").toUpperCase()}.
 
-STRICT RULES:
-- ONLY use facts from context
-- DO NOT infer or assume
-- DO NOT generalize beyond context
-- If information is insufficient → return empty
+RULES:
+- Use ONLY facts from context
+- Do NOT invent or assume
+- If data is limited → write whatever is available (DO NOT return empty)
 
 STYLE:
 - 2 short paragraphs
 - Clear, factual, concise
 - No markdown
+- No fluff or opinions
+
+FOCUS:
+- Extract key developments
+- Mention specific events, policies, companies, or changes
+- Avoid repetition
 
 Context:
 ${context}
@@ -104,19 +188,19 @@ Write section now:`
     },
   ]);
 
-  const draft = response.content as string;
+  const draft = (response.content as string).trim();
 
-  // Reject drafts that are clearly low quality
+  // 🔥 Relaxed filtering (IMPORTANT FIX)
   if (
-    draft.length < 80 ||
+    draft.length < 50 ||
     /no information/i.test(draft) ||
-    /there is no/i.test(draft) ||
-    /context does not/i.test(draft)
+    /not available/i.test(draft)
   ) {
-    console.log(`[WriterAgent:${state.topic}] Low quality draft — skipping`);
+    console.log(`[WriterAgent:${state.topic}] Weak draft — skipping`);
     return { draft: "" };
   }
 
   console.log(`[WriterAgent:${state.topic}] Done — ${draft.length} chars`);
+
   return { draft };
 }

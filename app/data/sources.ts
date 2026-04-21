@@ -51,16 +51,14 @@
 
   // 🌍 GEOPOLITICS (FIXED)
   geopolitics: [
-    "https://feeds.bbci.co.uk/news/world/rss.xml",
-    "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
-    "https://www.aljazeera.com/xml/rss/all.xml",
-  ],
+  "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
+  "https://feeds.skynews.com/feeds/rss/world.xml",
+],
 
-  // ⚡ ENERGY (FIXED)
-  energy: [
-    "https://www.eia.gov/rss/press.xml",
-    "https://oilprice.com/rss/main",
-  ],
+energy: [
+  "https://oilprice.com/rss/main",
+  "https://www.energy.gov/rss/articles.xml",
+],
 
   // 🇮🇳 INDIA AI
   india_ai: [
