@@ -279,10 +279,182 @@
 
 
 
-import { runIngestion } from "@/app/lib/langchain/ingest";
-import { runMultiAgentNewsletter } from "@/app/lib/langchain/agents/orchestrator";
-import { sendIngestNotification, sendNewsletter } from "@/app/lib/mailer";
+// import { runIngestion } from "@/app/lib/langchain/ingest";
+// import { runMultiAgentNewsletter } from "@/app/lib/langchain/agents/orchestrator";
+// import { sendIngestNotification, sendNewsletter } from "@/app/lib/mailer";
+// import { MongoClient } from "mongodb";
+
+// export const runtime = "nodejs";
+// export const maxDuration = 300;
+
+// const client = new MongoClient(process.env.MONGODB_URI!);
+
+// let isRunning = false;
+
+// export async function GET(req: Request) {
+//   const { searchParams } = new URL(req.url);
+//   const secret = searchParams.get("secret");
+
+//   if (secret !== process.env.CRON_SECRET) {
+//     console.error("[Cron] Unauthorized request");
+//     return Response.json({ error: "Unauthorized" }, { status: 401 });
+//   }
+
+//   if (isRunning) {
+//     console.log("[Cron] Already running — skipping");
+//     return Response.json({ message: "Already running" });
+//   }
+
+//   isRunning = true;
+
+//   console.log("[Cron] Pipeline started at", new Date().toISOString());
+
+//   try {
+//     await client.connect();
+//     const db = client.db("ai_newsletter");
+
+//     // ── STEP 0: CLEAR OLD DATA ─────────────────────────
+//     console.log("[Cron] Clearing old data...");
+
+//     for (const col of ["documents", "newsletter_cache"]) {
+//       await db.collection(col).deleteMany({});
+//       console.log(`[Cron] Cleared ${col}`);
+//     }
+
+//     // ── STEP 1: INGEST ─────────────────────────────────
+//     console.log("[Cron] Step 1 — Ingesting data...");
+//     let { totalChunks, perSource } = await runIngestion();
+
+//     console.log(`[Cron] Ingested ${totalChunks} chunks`);
+
+//     // 🔥 RETRY IF WEAK INGESTION
+//     if (totalChunks < 50) {
+//       console.warn("[Cron] Low data — retrying ingestion...");
+
+//       await new Promise((r) => setTimeout(r, 1000));
+
+//       const retry = await runIngestion();
+//       totalChunks = retry.totalChunks;
+//       perSource = retry.perSource;
+
+//       console.log(`[Cron] Retry ingestion → ${totalChunks} chunks`);
+//     }
+
+//     // 🔥 HARD STOP IF STILL LOW
+//     if (totalChunks < 30) {
+//       console.error("[Cron] Not enough data — skipping newsletter");
+
+//       await db.collection("cron_logs").insertOne({
+//         time: new Date(),
+//         status: "skipped_low_data",
+//         chunks: totalChunks,
+//       });
+
+//       return Response.json({
+//         message: "Skipped due to low data",
+//         totalChunks,
+//       });
+//     }
+
+//     // ── STEP 2: ADMIN NOTIFICATION ─────────────────────
+//     await sendIngestNotification(totalChunks, perSource);
+
+//     // 🔥 WAIT FOR VECTOR STORE TO SETTLE
+//     console.log("[Cron] Waiting before generation...");
+//     await new Promise((r) => setTimeout(r, 1500));
+
+//     // ── STEP 3: GENERATE NEWSLETTER ────────────────────
+//     console.log("[Cron] Step 3 — Generating newsletter...");
+//     const result = await runMultiAgentNewsletter(true);
+
+//     console.log(
+//       `[Cron] Newsletter generated — score: ${result.evaluation.score}`
+//     );
+
+//     // 🔥 SKIP LOW QUALITY NEWSLETTER
+//     if (result.evaluation.score < 0.6) {
+//       console.warn("[Cron] Low quality — skipping send");
+
+//       await db.collection("cron_logs").insertOne({
+//         time: new Date(),
+//         status: "skipped_low_quality",
+//         score: result.evaluation.score,
+//       });
+
+//       return Response.json({
+//         message: "Skipped due to low quality",
+//         score: result.evaluation.score,
+//       });
+//     }
+
+//     // ── STEP 4: FETCH SUBSCRIBERS ──────────────────────
+//     const subscribers = await db.collection("subscribers").find({}).toArray();
+//     const emails = subscribers.map((s) => s.email);
+
+//     if (emails.length === 0) {
+//       console.log("[Cron] No subscribers found");
+
+//       await db.collection("cron_logs").insertOne({
+//         time: new Date(),
+//         status: "no_subscribers",
+//         chunks: totalChunks,
+//         score: result.evaluation.score,
+//       });
+
+//       return Response.json({ message: "No subscribers found" });
+//     }
+
+//     // ── STEP 5: SEND NEWSLETTER ────────────────────────
+//     console.log(`[Cron] Sending to ${emails.length} subscribers...`);
+//     await sendNewsletter(emails, result.newsletter);
+
+//     // ── STEP 6: LOG SUCCESS ────────────────────────────
+//     await db.collection("cron_logs").insertOne({
+//       time: new Date(),
+//       status: "success",
+//       chunks: totalChunks,
+//       score: result.evaluation.score,
+//       subscribers: emails.length,
+//     });
+
+//     console.log("[Cron] Pipeline completed successfully");
+
+//     return Response.json({
+//       success: true,
+//       chunks: totalChunks,
+//       score: result.evaluation.score,
+//       sent: emails.length,
+//       completedAt: new Date().toISOString(),
+//     });
+
+//   } catch (err: any) {
+//     console.error("[Cron] Pipeline failed:", err.message);
+
+//     try {
+//       const db = client.db("ai_newsletter");
+//       await db.collection("cron_logs").insertOne({
+//         time: new Date(),
+//         status: "failed",
+//         error: err.message,
+//       });
+//     } catch {
+//       console.error("[Cron] Failed to log error");
+//     }
+
+//     return Response.json(
+//       { error: "Pipeline failed", details: err.message },
+//       { status: 500 }
+//     );
+//   } finally {
+//     isRunning = false;
+//   }
+// }   
+
+
+
+
 import { MongoClient } from "mongodb";
+import { sendNewsletter } from "@/app/lib/mailer";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -291,12 +463,15 @@ const client = new MongoClient(process.env.MONGODB_URI!);
 
 let isRunning = false;
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const secret = searchParams.get("secret");
 
   if (secret !== process.env.CRON_SECRET) {
-    console.error("[Cron] Unauthorized request");
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -307,142 +482,74 @@ export async function GET(req: Request) {
 
   isRunning = true;
 
-  console.log("[Cron] Pipeline started at", new Date().toISOString());
-
   try {
+    console.log("[Cron] Starting full pipeline...");
+
+    const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL!;
     await client.connect();
     const db = client.db("ai_newsletter");
 
-    // ── STEP 0: CLEAR OLD DATA ─────────────────────────
-    console.log("[Cron] Clearing old data...");
+    // ── STEP 0: CLEAR DB ─────────────────────────
+    console.log("[Cron] Clearing database...");
 
-    for (const col of ["documents", "newsletter_cache"]) {
-      await db.collection(col).deleteMany({});
-      console.log(`[Cron] Cleared ${col}`);
+    await db.collection("news").deleteMany({});
+    await db.collection("newsletter_cache").deleteMany({});
+
+    console.log("[Cron] Database cleared");
+
+    // ── STEP 1: CALL /api/ingest ─────────────────
+    console.log("[Cron] Calling /api/ingest...");
+
+    const ingestRes = await fetch(`${BASE_URL}/api/ingest`);
+    const ingestData = await ingestRes.json();
+
+    console.log("[Cron] Ingest response:", ingestData);
+
+    // 🔥 Wait 1 minute
+    console.log("[Cron] Waiting 60s after ingestion...");
+    await sleep(60000);
+
+    // ── STEP 2: CALL /api/generate ───────────────
+    console.log("[Cron] Calling /api/generate...");
+
+    const genRes = await fetch(`${BASE_URL}/api/generate`);
+    const genData = await genRes.json();
+
+    if (!genData?.newsletter) {
+      throw new Error("Newsletter generation failed");
     }
 
-    // ── STEP 1: INGEST ─────────────────────────────────
-    console.log("[Cron] Step 1 — Ingesting data...");
-    let { totalChunks, perSource } = await runIngestion();
+    console.log("[Cron] Newsletter generated");
 
-    console.log(`[Cron] Ingested ${totalChunks} chunks`);
+    // 🔥 Wait 1 minute
+    console.log("[Cron] Waiting 60s before sending...");
+    await sleep(60000);
 
-    // 🔥 RETRY IF WEAK INGESTION
-    if (totalChunks < 50) {
-      console.warn("[Cron] Low data — retrying ingestion...");
+    // ── STEP 3: SEND EMAIL ──────────────────────
+    console.log("[Cron] Sending emails...");
 
-      await new Promise((r) => setTimeout(r, 1000));
-
-      const retry = await runIngestion();
-      totalChunks = retry.totalChunks;
-      perSource = retry.perSource;
-
-      console.log(`[Cron] Retry ingestion → ${totalChunks} chunks`);
-    }
-
-    // 🔥 HARD STOP IF STILL LOW
-    if (totalChunks < 30) {
-      console.error("[Cron] Not enough data — skipping newsletter");
-
-      await db.collection("cron_logs").insertOne({
-        time: new Date(),
-        status: "skipped_low_data",
-        chunks: totalChunks,
-      });
-
-      return Response.json({
-        message: "Skipped due to low data",
-        totalChunks,
-      });
-    }
-
-    // ── STEP 2: ADMIN NOTIFICATION ─────────────────────
-    await sendIngestNotification(totalChunks, perSource);
-
-    // 🔥 WAIT FOR VECTOR STORE TO SETTLE
-    console.log("[Cron] Waiting before generation...");
-    await new Promise((r) => setTimeout(r, 1500));
-
-    // ── STEP 3: GENERATE NEWSLETTER ────────────────────
-    console.log("[Cron] Step 3 — Generating newsletter...");
-    const result = await runMultiAgentNewsletter(true);
-
-    console.log(
-      `[Cron] Newsletter generated — score: ${result.evaluation.score}`
-    );
-
-    // 🔥 SKIP LOW QUALITY NEWSLETTER
-    if (result.evaluation.score < 0.6) {
-      console.warn("[Cron] Low quality — skipping send");
-
-      await db.collection("cron_logs").insertOne({
-        time: new Date(),
-        status: "skipped_low_quality",
-        score: result.evaluation.score,
-      });
-
-      return Response.json({
-        message: "Skipped due to low quality",
-        score: result.evaluation.score,
-      });
-    }
-
-    // ── STEP 4: FETCH SUBSCRIBERS ──────────────────────
     const subscribers = await db.collection("subscribers").find({}).toArray();
     const emails = subscribers.map((s) => s.email);
 
     if (emails.length === 0) {
       console.log("[Cron] No subscribers found");
-
-      await db.collection("cron_logs").insertOne({
-        time: new Date(),
-        status: "no_subscribers",
-        chunks: totalChunks,
-        score: result.evaluation.score,
-      });
-
-      return Response.json({ message: "No subscribers found" });
+      return Response.json({ message: "No subscribers" });
     }
 
-    // ── STEP 5: SEND NEWSLETTER ────────────────────────
-    console.log(`[Cron] Sending to ${emails.length} subscribers...`);
-    await sendNewsletter(emails, result.newsletter);
+    await sendNewsletter(emails, genData.newsletter);
 
-    // ── STEP 6: LOG SUCCESS ────────────────────────────
-    await db.collection("cron_logs").insertOne({
-      time: new Date(),
-      status: "success",
-      chunks: totalChunks,
-      score: result.evaluation.score,
-      subscribers: emails.length,
-    });
-
-    console.log("[Cron] Pipeline completed successfully");
+    console.log(`[Cron] Sent to ${emails.length} users`);
 
     return Response.json({
       success: true,
-      chunks: totalChunks,
-      score: result.evaluation.score,
       sent: emails.length,
-      completedAt: new Date().toISOString(),
     });
 
   } catch (err: any) {
-    console.error("[Cron] Pipeline failed:", err.message);
-
-    try {
-      const db = client.db("ai_newsletter");
-      await db.collection("cron_logs").insertOne({
-        time: new Date(),
-        status: "failed",
-        error: err.message,
-      });
-    } catch {
-      console.error("[Cron] Failed to log error");
-    }
+    console.error("[Cron] Failed:", err.message);
 
     return Response.json(
-      { error: "Pipeline failed", details: err.message },
+      { error: "Cron failed", details: err.message },
       { status: 500 }
     );
   } finally {
