@@ -497,7 +497,6 @@ export async function GET(req: Request) {
 
     console.log("[Cron] Database cleared");
 
-    // ── STEP 1: CALL /api/ingest ─────────────────
     console.log("[Cron] Calling /api/ingest...");
 
     const ingestRes = await fetch(`${BASE_URL}/api/ingest`);
@@ -505,11 +504,9 @@ export async function GET(req: Request) {
 
     console.log("[Cron] Ingest response:", ingestData);
 
-    // 🔥 Wait 1 minute
     console.log("[Cron] Waiting 60s after ingestion...");
     await sleep(60000);
 
-    // ── STEP 2: CALL /api/generate ───────────────
     console.log("[Cron] Calling /api/generate...");
 
     const genRes = await fetch(`${BASE_URL}/api/generate`);
@@ -521,11 +518,9 @@ export async function GET(req: Request) {
 
     console.log("[Cron] Newsletter generated");
 
-    // 🔥 Wait 1 minute
     console.log("[Cron] Waiting 60s before sending...");
     await sleep(60000);
 
-    // ── STEP 3: SEND EMAIL ──────────────────────
     console.log("[Cron] Sending emails...");
 
     const subscribers = await db.collection("subscribers").find({}).toArray();
