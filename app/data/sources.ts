@@ -67,4 +67,9 @@
     "https://economictimes.indiatimes.com/rssfeeds/13357270.cms",
     "https://www.livemint.com/rss/technology",
   ],
-};
+};  
+
+
+export const htmlSources: string[] = [
+  // intentionally empty for now — add only pages you know are scrapable
+];
