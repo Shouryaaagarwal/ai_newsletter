@@ -35,36 +35,36 @@
 // export const htmlSources: string[] = [
 //   // intentionally empty for now — add only pages you know are scrapable
 // ];  
- 
-export const SOURCE_MAP = {
+ export const SOURCE_MAP = {
+  // 🧪 AI RESEARCH (stable)
   ai_research: [
     "https://arxiv.org/rss/cs.AI",
-    "https://deepmind.google/discover/blog/rss.xml",
-    "https://openai.com/blog/rss.xml",
-    "https://huggingface.co/blog/feed.xml",
-  ],
-
-  ai_industry: [
-    "https://techcrunch.com/feed/",
-    "https://venturebeat.com/feed/",
+    "https://huggingface.co/blog/feed.xml", // works
     "https://www.technologyreview.com/topic/artificial-intelligence/feed",
   ],
 
+  // 🏢 AI INDUSTRY
+  ai_industry: [
+    "https://techcrunch.com/feed/",
+    "https://www.theverge.com/rss/index.xml", // better than venturebeat
+  ],
+
+  // 🌍 GEOPOLITICS (FIXED)
   geopolitics: [
-    "https://www.reuters.com/world/rss",
-    "https://www.ft.com/technology?format=rss",
+    "https://feeds.bbci.co.uk/news/world/rss.xml",
+    "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
+    "https://www.aljazeera.com/xml/rss/all.xml",
   ],
 
+  // ⚡ ENERGY (FIXED)
   energy: [
-    "https://www.reuters.com/business/energy/rss",
-    "https://www.iea.org/rss/news",
+    "https://www.eia.gov/rss/press.xml",
+    "https://oilprice.com/rss/main",
   ],
 
+  // 🇮🇳 INDIA AI
   india_ai: [
     "https://economictimes.indiatimes.com/rssfeeds/13357270.cms",
     "https://www.livemint.com/rss/technology",
   ],
 };
-export const htmlSources: string[] = [
-  // intentionally empty for now — add only pages you know are scrapable
-];
