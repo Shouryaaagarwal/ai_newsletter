@@ -531,7 +531,8 @@ export async function GET(req: Request) {
       return Response.json({ message: "No subscribers" });
     }
 
-    await sendNewsletter(emails, genData.newsletter);
+    const readTime = Math.max(1, Math.ceil(genData.newsletter.split(/\s+/).length / 200));
+    await sendNewsletter(emails, genData.newsletter, readTime);
 
     console.log(`[Cron] Sent to ${emails.length} users`);
 
