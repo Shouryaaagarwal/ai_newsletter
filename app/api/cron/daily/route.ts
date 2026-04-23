@@ -453,8 +453,109 @@
 
 
 
+// import { MongoClient } from "mongodb";
+// import { sendNewsletter } from "@/app/lib/mailer";
+
+// export const runtime = "nodejs";
+// export const maxDuration = 300;
+
+// const client = new MongoClient(process.env.MONGODB_URI!);
+
+// let isRunning = false;
+
+// function sleep(ms: number) {
+//   return new Promise((resolve) => setTimeout(resolve, ms));
+// }
+
+// export async function GET(req: Request) {
+//   const { searchParams } = new URL(req.url);
+//   const secret = searchParams.get("secret");
+
+//   if (secret !== process.env.CRON_SECRET) {
+//     return Response.json({ error: "Unauthorized" }, { status: 401 });
+//   }
+
+//   if (isRunning) {
+//     console.log("[Cron] Already running — skipping");
+//     return Response.json({ message: "Already running" });
+//   }
+
+//   isRunning = true;
+
+//   try {
+//     console.log("[Cron] Starting full pipeline...");
+
+//     const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL!;
+//     await client.connect();
+//     const db = client.db("ai_newsletter");
+
+//     // ── STEP 0: CLEAR DB ─────────────────────────
+//     console.log("[Cron] Clearing database...");
+
+//     await db.collection("news").deleteMany({});
+//     await db.collection("newsletter_cache").deleteMany({});
+
+//     console.log("[Cron] Database cleared");
+
+//     console.log("[Cron] Calling /api/ingest...");
+
+//     const ingestRes = await fetch(`${BASE_URL}/api/ingest`);
+//     const ingestData = await ingestRes.json();
+
+//     console.log("[Cron] Ingest response:", ingestData);
+
+//     console.log("[Cron] Waiting 60s after ingestion...");
+//     await sleep(60000);
+
+//     console.log("[Cron] Calling /api/generate...");
+
+//     const genRes = await fetch(`${BASE_URL}/api/generate`);
+//     const genData = await genRes.json();
+
+//     if (!genData?.newsletter) {
+//       throw new Error("Newsletter generation failed");
+//     }
+
+//     console.log("[Cron] Newsletter generated");
+
+//     console.log("[Cron] Waiting 60s before sending...");
+//     await sleep(60000);
+
+//     console.log("[Cron] Sending emails...");
+
+//     const subscribers = await db.collection("subscribers").find({}).toArray();
+//     const emails = subscribers.map((s) => s.email);
+
+//     if (emails.length === 0) {
+//       console.log("[Cron] No subscribers found");
+//       return Response.json({ message: "No subscribers" });
+//     }
+
+//     const readTime = Math.max(1, Math.ceil(genData.newsletter.split(/\s+/).length / 200));
+//     await sendNewsletter(emails, genData.newsletter, readTime);
+
+//     console.log(`[Cron] Sent to ${emails.length} users`);
+
+//     return Response.json({
+//       success: true,
+//       sent: emails.length,
+//     });
+
+//   } catch (err: any) {
+//     console.error("[Cron] Failed:", err.message);
+
+//     return Response.json(
+//       { error: "Cron failed", details: err.message },
+//       { status: 500 }
+//     );
+//   } finally {
+//     isRunning = false;
+//   }
+// }  
+
+
 import { MongoClient } from "mongodb";
-import { sendNewsletter } from "@/app/lib/mailer";
+import { sendNewsletter, sendIngestReportEmail } from "@/app/lib/mailer";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -504,6 +605,18 @@ export async function GET(req: Request) {
 
     console.log("[Cron] Ingest response:", ingestData);
 
+    // 🔥 NEW: SEND INGEST REPORT EMAIL
+    try {
+      if (ingestData?.perSource) {
+        await sendIngestReportEmail(ingestData.perSource);
+        console.log("[Cron] Ingest report email sent");
+      } else {
+        console.warn("[Cron] No perSource data found for report");
+      }
+    } catch (err) {
+      console.error("[Cron] Failed to send ingest report email");
+    }
+
     console.log("[Cron] Waiting 60s after ingestion...");
     await sleep(60000);
 
@@ -531,7 +644,11 @@ export async function GET(req: Request) {
       return Response.json({ message: "No subscribers" });
     }
 
-    const readTime = Math.max(1, Math.ceil(genData.newsletter.split(/\s+/).length / 200));
+    const readTime = Math.max(
+      1,
+      Math.ceil(genData.newsletter.split(/\s+/).length / 200)
+    );
+
     await sendNewsletter(emails, genData.newsletter, readTime);
 
     console.log(`[Cron] Sent to ${emails.length} users`);

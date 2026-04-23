@@ -1626,4 +1626,59 @@ export async function sendWelcomeEmail(email: string) {
     subject,
     html,
   });
+}  
+
+
+export async function sendIngestReportEmail(
+  report: Record<string, number | string>
+) {
+  const subject = "📊 Meridian Ingestion Report";
+
+  const rows = Object.entries(report)
+    .map(([source, result]) => {
+      const isError = typeof result === "string";
+
+      return `
+        <tr>
+          <td style="padding:8px;border-bottom:1px solid #eee;">${source}</td>
+          <td style="padding:8px;border-bottom:1px solid #eee;
+            color:${isError ? "#c30e16" : "#15803d"};">
+            ${result}
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  const html = `
+    <div style="font-family:Arial;padding:20px;">
+      <h2>📊 Meridian Ingestion Report</h2>
+
+      <p>Here’s the latest ingestion summary:</p>
+
+      <table style="width:100%;border-collapse:collapse;margin-top:20px;">
+        <thead>
+          <tr style="text-align:left;">
+            <th style="padding:8px;border-bottom:2px solid #ddd;">Source</th>
+            <th style="padding:8px;border-bottom:2px solid #ddd;">Result</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+        </tbody>
+      </table>
+
+      <p style="margin-top:20px;font-size:12px;color:#666;">
+        ✔ Green = success<br/>
+        ❌ Red = failed source
+      </p>
+    </div>
+  `;
+
+  await transporter.sendMail({
+    from: `"Meridian Reports" <${process.env.EMAIL_FROM}>`,
+    to: process.env.ADMIN_EMAIL, // 👈 your email
+    subject,
+    html,
+  });
 }
