@@ -954,151 +954,656 @@ export async function sendIngestNotification(
   console.log(`[Mailer] Ingest notification sent to admin`);
 }
 
-// 🔥 UPDATED: now accepts readTime
+// // 🔥 UPDATED: now accepts readTime
+// export function buildEmailHTML(
+//   newsletter: string,
+//   readTime: number
+// ): string {
+//   const sections = newsletter.split("\n\n").filter(Boolean);
+
+//   const bodyHTML = sections
+//     .map((block) => {
+//       const match = block.match(/^\*\*(.*?)\*\*\s*(.*)/s);
+
+//       if (match) {
+//         const title = match[1];
+//         let content = match[2];
+
+//         content = content.replace(
+//           /(\d+–?\d*%?)/g,
+//           `<strong style="color:#6366f1;">$1</strong>`
+//         );
+
+//         return `
+//         <div style="
+//           margin-bottom:28px;
+//           padding:20px;
+//           border:1px solid #e5e7eb;
+//           border-radius:12px;
+//           background:#fafafa;
+//         ">
+//           <h2 style="
+//             font-size:18px;
+//             font-weight:600;
+//             color:#111827;
+//             margin:0 0 10px;
+//           ">
+//             ${title}
+//           </h2>
+
+//           <p style="
+//             font-size:15px;
+//             color:#374151;
+//             line-height:1.7;
+//             margin:0;
+//           ">
+//             ${content}
+//           </p>
+//         </div>
+//         `;
+//       }
+
+//       if (block.startsWith("AI Newsletter")) {
+//         return `
+//           <h1 style="
+//             font-size:22px;
+//             font-weight:700;
+//             color:#111827;
+//             margin:0 0 10px;
+//           ">
+//             ${block}
+//           </h1>
+
+//           <!-- 🔥 READ TIME ADDED HERE -->
+//           <p style="
+//             font-size:12px;
+//             color:#6b7280;
+//             margin-bottom:20px;
+//           ">
+//             🕒 ${readTime} min read
+//           </p>
+//         `;
+//       }
+
+//       return `
+//         <p style="
+//           font-size:15px;
+//           color:#374151;
+//           line-height:1.7;
+//           margin-bottom:14px;
+//         ">
+//           ${block}
+//         </p>
+//       `;
+//     })
+//     .join("");
+
+//   return `
+// <!DOCTYPE html>
+// <html>
+// <body style="
+//   margin:0;
+//   padding:0;
+//   background:#f3f4f6;
+//   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+// ">
+
+// <table width="100%">
+// <tr>
+// <td align="center" style="padding:40px 16px;">
+
+// <table width="600" style="
+//   background:#ffffff;
+//   border-radius:14px;
+//   overflow:hidden;
+// ">
+
+// <tr>
+// <td style="background:#6366f1;padding:28px;">
+//   <h1 style="margin:0;font-size:22px;color:#ffffff;">
+//     Nexus Brief
+//   </h1>
+//   <p style="margin:6px 0 0;color:rgba(255,255,255,0.8);font-size:13px;">
+//     AI · Energy · Geopolitics · India
+//   </p>
+// </td>
+// </tr>
+
+// <tr>
+// <td style="padding:28px;">
+//   ${bodyHTML}
+// </td>
+// </tr>
+
+// <tr>
+// <td style="
+//   padding:20px;
+//   text-align:center;
+//   font-size:12px;
+//   color:#9ca3af;
+//   border-top:1px solid #e5e7eb;
+// ">
+//   You are receiving this because you subscribed to Nexus Brief.
+// </td>
+// </tr>
+
+// </table>
+
+// </td>
+// </tr>
+// </table>
+
+// </body>
+// </html>
+// `;
+// }
+
+// // 🔥 UPDATED: now accepts readTime
+// export async function sendNewsletter(
+//   to: string[],
+//   newsletter: string,
+//   readTime: number
+// ): Promise<void> {
+//   const html = buildEmailHTML(newsletter, readTime);
+
+//   const date = new Date().toLocaleDateString("en-US", {
+//     month: "long", day: "numeric", year: "numeric",
+//   });
+
+//   await transporter.sendMail({
+//     from: `"${process.env.GMAIL_FROM_NAME}" <${process.env.GMAIL_USER}>`,
+//     bcc: to,
+//     subject: `Nexus Brief · ${date}`,
+//     html,
+//   });
+
+//   console.log(`[Mailer] Newsletter sent to ${to.length} subscribers`);
+// }     
+
 export function buildEmailHTML(
   newsletter: string,
   readTime: number
 ): string {
+  const date = new Date().toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+
   const sections = newsletter.split("\n\n").filter(Boolean);
 
-  const bodyHTML = sections
-    .map((block) => {
-      const match = block.match(/^\*\*(.*?)\*\*\s*(.*)/s);
+  let issueNumber = "";
+  let issueDate = date;
+  let bodyBlocks: string[] = [];
 
-      if (match) {
-        const title = match[1];
-        let content = match[2];
+  sections.forEach((block) => {
+    if (block.startsWith("AI Newsletter") || block.startsWith("Meridian")) {
+      // skip — we render our own header
+    } else {
+      bodyBlocks.push(block);
+    }
+  });
 
-        content = content.replace(
-          /(\d+–?\d*%?)/g,
-          `<strong style="color:#6366f1;">$1</strong>`
-        );
+  // ── Render each content block ──────────────────────────────────────────────
+  const renderBlock = (block: string, idx: number): string => {
+    const sectionMatch = block.match(/^\*\*(.*?)\*\*\s*([\s\S]*)/);
 
-        return `
-        <div style="
-          margin-bottom:28px;
-          padding:20px;
-          border:1px solid #e5e7eb;
-          border-radius:12px;
-          background:#fafafa;
-        ">
-          <h2 style="
-            font-size:18px;
-            font-weight:600;
-            color:#111827;
-            margin:0 0 10px;
-          ">
-            ${title}
-          </h2>
+    if (sectionMatch) {
+      const title = sectionMatch[1];
+      let content = sectionMatch[2].trim();
 
-          <p style="
-            font-size:15px;
-            color:#374151;
-            line-height:1.7;
-            margin:0;
-          ">
-            ${content}
-          </p>
-        </div>
-        `;
-      }
+      // Highlight numbers / percentages
+      content = content.replace(
+        /(\b\d[\d,]*(?:\.\d+)?(?:[%x]|\s?(?:bn|mn|trillion|billion|million))?\b)/g,
+        `<span style="color:#c084fc;font-weight:300;">$1</span>`
+      );
 
-      if (block.startsWith("AI Newsletter")) {
-        return `
-          <h1 style="
-            font-size:22px;
-            font-weight:700;
-            color:#111827;
-            margin:0 0 10px;
-          ">
-            ${block}
-          </h1>
-
-          <!-- 🔥 READ TIME ADDED HERE -->
-          <p style="
-            font-size:12px;
-            color:#6b7280;
-            margin-bottom:20px;
-          ">
-            🕒 ${readTime} min read
-          </p>
-        `;
-      }
+      const tagLabels: Record<number, string> = {
+        0: "01",
+        1: "02",
+        2: "03",
+        3: "04",
+        4: "05",
+        5: "06",
+      };
+      const tag = tagLabels[idx % 6] ?? String(idx + 1).padStart(2, "0");
 
       return `
-        <p style="
-          font-size:15px;
-          color:#374151;
-          line-height:1.7;
-          margin-bottom:14px;
-        ">
-          ${block}
-        </p>
-      `;
-    })
-    .join("");
+      <!-- Section Block -->
+      <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%"
+        style="margin-bottom:16px;">
+        <tr>
+          <td style="
+            background:rgba(168,85,247,0.05);
+            border:1px solid rgba(168,85,247,0.14);
+            border-radius:8px;
+            padding:22px 24px;
+          ">
+            <!-- Tag row -->
+            <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%"
+              style="margin-bottom:12px;">
+              <tr>
+                <td>
+                  <span style="
+                    font-family:'Libre Franklin',Arial,sans-serif;
+                    font-size:9px;
+                    font-weight:300;
+                    letter-spacing:0.2em;
+                    text-transform:uppercase;
+                    color:rgba(168,85,247,0.55);
+                  ">${tag}</span>
+                </td>
+              </tr>
+            </table>
+            <!-- Title -->
+            <p style="
+              font-family:'Libre Franklin',Arial,sans-serif;
+              font-size:15px;
+              font-weight:300;
+              color:rgba(255,255,255,0.88);
+              line-height:22px;
+              margin:0 0 10px 0;
+              padding:0;
+            ">${title}</p>
+            <!-- Divider -->
+            <div style="height:1px;background:rgba(168,85,247,0.1);margin-bottom:12px;"></div>
+            <!-- Body -->
+            <p style="
+              font-family:'Libre Franklin',Arial,sans-serif;
+              font-size:13px;
+              font-weight:300;
+              color:rgba(255,255,255,0.52);
+              line-height:22px;
+              margin:0;
+              padding:0;
+            ">${content}</p>
+          </td>
+        </tr>
+      </table>`;
+    }
 
-  return `
-<!DOCTYPE html>
-<html>
-<body style="
-  margin:0;
-  padding:0;
-  background:#f3f4f6;
-  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-">
+    // Plain paragraph
+    return `
+    <p style="
+      font-family:'Libre Franklin',Arial,sans-serif;
+      font-size:13px;
+      font-weight:300;
+      color:rgba(255,255,255,0.45);
+      line-height:22px;
+      margin:0 0 14px 0;
+      padding:0;
+    ">${block}</p>`;
+  };
 
-<table width="100%">
-<tr>
-<td align="center" style="padding:40px 16px;">
+  const bodyHTML = bodyBlocks.map(renderBlock).join("");
 
-<table width="600" style="
-  background:#ffffff;
-  border-radius:14px;
-  overflow:hidden;
-">
+  return `<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+  <meta name="color-scheme" content="dark"/>
+  <meta name="supported-color-schemes" content="dark"/>
+  <title>Meridian · ${date}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:ital,wght@0,200;0,300;0,400;1,200;1,300&display=swap" rel="stylesheet"/>
+  <!--[if mso]>
+  <noscript>
+    <xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml>
+  </noscript>
+  <![endif]-->
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Libre+Franklin:ital,wght@0,200;0,300;0,400;1,200;1,300&display=swap');
+    body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+    img { -ms-interpolation-mode: bicubic; border: 0; outline: none; text-decoration: none; }
+    body { margin: 0 !important; padding: 0 !important; width: 100% !important; }
+    a { color: #a855f7; }
+    @media only screen and (max-width: 600px) {
+      .email-container { width: 100% !important; }
+      .hero-pad { padding: 36px 20px 28px !important; }
+      .body-pad { padding: 28px 20px !important; }
+      .footer-pad { padding: 20px 20px !important; }
+      .headline { font-size: 24px !important; line-height: 30px !important; }
+    }
+  </style>
+</head>
+<body style="margin:0;padding:0;background-color:#09080f;font-family:'Libre Franklin',Arial,sans-serif;-webkit-font-smoothing:antialiased;">
 
-<tr>
-<td style="background:#6366f1;padding:28px;">
-  <h1 style="margin:0;font-size:22px;color:#ffffff;">
-    Nexus Brief
-  </h1>
-  <p style="margin:6px 0 0;color:rgba(255,255,255,0.8);font-size:13px;">
-    AI · Energy · Geopolitics · India
-  </p>
-</td>
-</tr>
+<!-- Preheader -->
+<div style="display:none;max-height:0;overflow:hidden;font-size:1px;line-height:1px;color:#09080f;mso-hide:all;">
+  Your Meridian briefing for ${date} — AI, energy, geopolitics, and more.&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌
+</div>
 
-<tr>
-<td style="padding:28px;">
-  ${bodyHTML}
-</td>
-</tr>
+<!-- Wrapper -->
+<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%"
+  style="background-color:#09080f;min-height:100vh;">
+  <tr>
+    <td align="center" valign="top" style="padding:32px 16px;">
 
-<tr>
-<td style="
-  padding:20px;
-  text-align:center;
-  font-size:12px;
-  color:#9ca3af;
-  border-top:1px solid #e5e7eb;
-">
-  You are receiving this because you subscribed to Nexus Brief.
-</td>
-</tr>
+      <!-- Email container -->
+      <table class="email-container" role="presentation" border="0" cellpadding="0" cellspacing="0"
+        width="560" style="max-width:560px;width:100%;">
 
-</table>
+        <!-- ── HERO / MASTHEAD ── -->
+        <tr>
+          <td style="border-radius:10px 10px 0 0;overflow:hidden;">
+            <div style="
+              background: linear-gradient(145deg, #140b24 0%, #0f0a1c 40%, #0c0818 100%);
+              border: 1px solid rgba(168,85,247,0.15);
+              border-radius: 10px 10px 0 0;
+            ">
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td class="hero-pad" style="padding:44px 44px 36px;">
 
-</td>
-</tr>
+                    <!-- Logo row -->
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                      <tr>
+                        <!-- Brand mark -->
+                        <td valign="middle">
+                          <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+                            <tr>
+                              <td style="
+                                width:22px; height:22px;
+                                border:1px solid rgba(168,85,247,0.45);
+                                border-radius:3px;
+                                text-align:center;
+                                vertical-align:middle;
+                              ">
+                                <span style="
+                                  display:inline-block;
+                                  font-size:11px;
+                                  line-height:20px;
+                                  color:#a855f7;
+                                  font-weight:200;
+                                ">◎</span>
+                              </td>
+                              <td style="padding-left:10px;">
+                                <span style="
+                                  font-family:'Libre Franklin',Arial,sans-serif;
+                                  font-size:11px;
+                                  font-weight:200;
+                                  letter-spacing:0.28em;
+                                  text-transform:uppercase;
+                                  color:rgba(255,255,255,0.7);
+                                ">Meridian</span>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                        <!-- Date + read time pill -->
+                        <td align="right" valign="middle">
+                          <span style="
+                            font-family:'Libre Franklin',Arial,sans-serif;
+                            font-size:9px;
+                            font-weight:300;
+                            letter-spacing:0.14em;
+                            color:rgba(168,85,247,0.55);
+                            text-transform:uppercase;
+                          ">${date}&nbsp;&nbsp;·&nbsp;&nbsp;${readTime} min read</span>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Spacer -->
+                    <div style="height:28px;">&nbsp;</div>
+
+                    <!-- Headline -->
+                    <h1 class="headline" style="
+                      font-family:'Libre Franklin',Arial,sans-serif;
+                      font-size:32px;
+                      font-weight:200;
+                      line-height:40px;
+                      letter-spacing:-0.01em;
+                      color:#ffffff;
+                      margin:0 0 14px 0;
+                      padding:0;
+                      mso-line-height-rule:exactly;
+                    ">
+                      Today's briefing.<br/>
+                      <span style="font-style:italic;font-weight:200;color:#c084fc;">
+                        Signal over noise.
+                      </span>
+                    </h1>
+
+                    <!-- Sub-headline -->
+                    <p style="
+                      font-family:'Libre Franklin',Arial,sans-serif;
+                      font-size:13px;
+                      font-weight:300;
+                      line-height:22px;
+                      color:rgba(255,255,255,0.32);
+                      margin:0;
+                      padding:0;
+                      max-width:360px;
+                    ">
+                      AI, energy, geopolitics, and emerging trends —
+                      distilled and delivered.
+                    </p>
+
+                    <!-- Divider -->
+                    <div style="height:1px;background:rgba(168,85,247,0.12);margin-top:32px;">&nbsp;</div>
+
+                    <!-- Coverage tags -->
+                    <div style="height:20px;">&nbsp;</div>
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="padding-right:8px;">
+                          <span style="
+                            display:inline-block;
+                            font-family:'Libre Franklin',Arial,sans-serif;
+                            font-size:9px;
+                            font-weight:300;
+                            letter-spacing:0.16em;
+                            text-transform:uppercase;
+                            color:rgba(168,85,247,0.6);
+                            border:1px solid rgba(168,85,247,0.18);
+                            border-radius:4px;
+                            padding:4px 10px;
+                          ">AI &amp; Tech</span>
+                        </td>
+                        <td style="padding-right:8px;">
+                          <span style="
+                            display:inline-block;
+                            font-family:'Libre Franklin',Arial,sans-serif;
+                            font-size:9px;
+                            font-weight:300;
+                            letter-spacing:0.16em;
+                            text-transform:uppercase;
+                            color:rgba(168,85,247,0.6);
+                            border:1px solid rgba(168,85,247,0.18);
+                            border-radius:4px;
+                            padding:4px 10px;
+                          ">Energy</span>
+                        </td>
+                        <td style="padding-right:8px;">
+                          <span style="
+                            display:inline-block;
+                            font-family:'Libre Franklin',Arial,sans-serif;
+                            font-size:9px;
+                            font-weight:300;
+                            letter-spacing:0.16em;
+                            text-transform:uppercase;
+                            color:rgba(168,85,247,0.6);
+                            border:1px solid rgba(168,85,247,0.18);
+                            border-radius:4px;
+                            padding:4px 10px;
+                          ">Geopolitics</span>
+                        </td>
+                        <td>
+                          <span style="
+                            display:inline-block;
+                            font-family:'Libre Franklin',Arial,sans-serif;
+                            font-size:9px;
+                            font-weight:300;
+                            letter-spacing:0.16em;
+                            text-transform:uppercase;
+                            color:rgba(168,85,247,0.6);
+                            border:1px solid rgba(168,85,247,0.18);
+                            border-radius:4px;
+                            padding:4px 10px;
+                          ">India</span>
+                        </td>
+                      </tr>
+                    </table>
+
+                  </td>
+                </tr>
+              </table>
+            </div>
+          </td>
+        </tr>
+
+        <!-- ── BODY ── -->
+        <tr>
+          <td style="
+            background:#0e0c19;
+            border-left:1px solid rgba(168,85,247,0.1);
+            border-right:1px solid rgba(168,85,247,0.1);
+          ">
+            <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+              <tr>
+                <td class="body-pad" style="padding:36px 44px;">
+
+                  <!-- Section label -->
+                  <p style="
+                    font-family:'Libre Franklin',Arial,sans-serif;
+                    font-size:9px;
+                    font-weight:300;
+                    letter-spacing:0.2em;
+                    text-transform:uppercase;
+                    color:rgba(168,85,247,0.55);
+                    margin:0 0 20px 0;
+                    padding:0;
+                  ">Today's Intelligence</p>
+
+                  <!-- Dynamic content blocks -->
+                  ${bodyHTML}
+
+                  <!-- Closing divider -->
+                  <div style="height:1px;background:rgba(255,255,255,0.05);margin-top:32px;margin-bottom:32px;">&nbsp;</div>
+
+                  <!-- Quote / tagline -->
+                  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                    <tr>
+                      <td style="
+                        border-left:2px solid rgba(168,85,247,0.4);
+                        padding-left:18px;
+                      ">
+                        <p style="
+                          font-family:'Libre Franklin',Arial,sans-serif;
+                          font-size:14px;
+                          font-weight:200;
+                          font-style:italic;
+                          color:rgba(255,255,255,0.4);
+                          line-height:22px;
+                          margin:0;
+                        ">
+                          &ldquo;The world, clearly rendered.&rdquo;
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- ── FOOTER ── -->
+        <tr>
+          <td style="
+            background:#0b0915;
+            border:1px solid rgba(168,85,247,0.08);
+            border-top:1px solid rgba(168,85,247,0.12);
+            border-radius:0 0 10px 10px;
+          ">
+            <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+              <tr>
+                <td class="footer-pad" style="padding:28px 44px 32px;">
+
+                  <!-- Footer brand -->
+                  <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td>
+                        <span style="
+                          font-family:'Libre Franklin',Arial,sans-serif;
+                          font-size:9px;
+                          font-weight:200;
+                          letter-spacing:0.26em;
+                          text-transform:uppercase;
+                          color:rgba(255,255,255,0.22);
+                        ">Meridian</span>
+                      </td>
+                      <td style="padding:0 10px;">
+                        <span style="color:rgba(168,85,247,0.25);font-size:9px;">·</span>
+                      </td>
+                      <td>
+                        <span style="
+                          font-family:'Libre Franklin',Arial,sans-serif;
+                          font-size:9px;
+                          font-weight:300;
+                          color:rgba(255,255,255,0.14);
+                        ">Daily Intelligence</span>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <div style="height:14px;">&nbsp;</div>
+
+                  <!-- Footer meta -->
+                  <p style="
+                    font-family:'Libre Franklin',Arial,sans-serif;
+                    font-size:10px;
+                    font-weight:300;
+                    line-height:17px;
+                    color:rgba(255,255,255,0.18);
+                    margin:0 0 10px 0;
+                  ">
+                    You're receiving this because you subscribed to Meridian at
+                    <span style="color:rgba(168,85,247,0.5);">meridian.so</span>.
+                  </p>
+
+                  <!-- Unsubscribe -->
+                  <p style="
+                    font-family:'Libre Franklin',Arial,sans-serif;
+                    font-size:10px;
+                    font-weight:300;
+                    line-height:17px;
+                    color:rgba(255,255,255,0.14);
+                    margin:0;
+                  ">
+                    <a href="{{unsubscribe_url}}" style="color:rgba(168,85,247,0.4);text-decoration:none;">Unsubscribe</a>
+                    &nbsp;·&nbsp;
+                    <a href="{{preferences_url}}" style="color:rgba(168,85,247,0.4);text-decoration:none;">Manage preferences</a>
+                    &nbsp;·&nbsp;
+                    <a href="{{privacy_url}}" style="color:rgba(168,85,247,0.4);text-decoration:none;">Privacy policy</a>
+                  </p>
+
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Bottom spacer -->
+        <tr>
+          <td style="height:32px;">&nbsp;</div></td>
+        </tr>
+
+      </table>
+      <!-- /Email container -->
+
+    </td>
+  </tr>
 </table>
 
 </body>
-</html>
-`;
+</html>`;
 }
 
-// 🔥 UPDATED: now accepts readTime
 export async function sendNewsletter(
   to: string[],
   newsletter: string,
@@ -1107,18 +1612,20 @@ export async function sendNewsletter(
   const html = buildEmailHTML(newsletter, readTime);
 
   const date = new Date().toLocaleDateString("en-US", {
-    month: "long", day: "numeric", year: "numeric",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
   });
 
   await transporter.sendMail({
-    from: `"${process.env.GMAIL_FROM_NAME}" <${process.env.GMAIL_USER}>`,
+    from: `"Meridian" <${process.env.EMAIL_FROM}>`,
     bcc: to,
-    subject: `Nexus Brief · ${date}`,
+    subject: `Meridian · ${date}`,
     html,
   });
 
   console.log(`[Mailer] Newsletter sent to ${to.length} subscribers`);
-}  
+}
 
 export async function sendWelcomeEmail(email: string) {
   const subject = "Welcome to Meridian";
