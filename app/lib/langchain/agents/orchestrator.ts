@@ -379,7 +379,7 @@ export async function runMultiAgentNewsletter(forceRefresh = false): Promise<{
   );
 
   // 🔥 PASS TRENDS TO EDITOR
-  const result = await editorAgent(finalDrafts, allDocs, trends);
+  const result = await editorAgent(finalDrafts, allDocs);
 
   // 🔥 CONFIDENCE CALCULATION
   const topicCoverage = finalDrafts.length / TOPICS.length;

@@ -679,20 +679,213 @@ import { checkHallucination } from "../evaluator";
 
 
 
+// import { llm } from "../llm";
+
+// export async function editorAgent(
+//   drafts: string[],
+//   allDocs: any[],
+//   trends: string[] = []
+// ): Promise<{
+//   newsletter: string;
+//   score: number;
+//   label: string;
+//   flaggedClaims: string[];
+//   shouldSend: boolean;
+//   readTime: number;     // 🔥 NEW
+//   analysis: string;     // 🔥 NEW
+// }> {
+
+//   const validDrafts = drafts.filter((d) => {
+//     if (!d || d.trim().length < 50) return false;
+//     if (/no information available/i.test(d)) return false;
+//     return true;
+//   });
+
+//   console.log(
+//     `[EditorAgent] ${validDrafts.length} valid drafts from ${drafts.length} total`
+//   );
+
+//   const date = new Date().toLocaleDateString("en-US", {
+//     month: "long",
+//     day: "numeric",
+//     year: "numeric",
+//   });
+
+//   // 🔥 FALLBACK
+//   if (validDrafts.length === 0) {
+//     return {
+//       newsletter: `AI Newsletter – ${date}\n\nLimited data available today.`,
+//       score: 0.6,
+//       label: "partial",
+//       flaggedClaims: ["Low data coverage"],
+//       shouldSend: false,
+//       readTime: 1,
+//       analysis: "Coverage: Low | Clarity: Medium | Depth: Low | Gap: Insufficient data",
+//     };
+//   }
+
+//   const cleanedDrafts = validDrafts.map((d) =>
+//     d
+//       .replace(
+//         /^#\s*(AI_RESEARCH|ENERGY|GEOPOLITICS|INDIA_AI|INDIA_IMPACT_SYNTHESIS)\s*\n?/gim,
+//         ""
+//       )
+//       .trim()
+//   );
+
+//   const truncatedDrafts = cleanedDrafts.map((d) => d.slice(0, 800));
+//   const combined = truncatedDrafts.join("\n\n---\n\n");
+
+//   // 🔥 FORMAT TRENDS
+//   const trendBlock =
+//     trends.length > 0
+//       ? `\n\nKey Trends:\n${trends.map((t) => `- ${t}`).join("\n")}`
+//       : "";
+
+//   const response = await llm.invoke([
+//     {
+//       role: "user",
+//       content: `You are a professional newsletter editor and analyst.
+
+// TASK 1:
+// Rewrite into a structured newsletter.
+
+// - Start with: AI Newsletter – ${date}
+// - Create clear sections
+// - Keep concise and factual
+// - ONLY use provided drafts
+
+// TASK 2:
+// Add insight:
+// At the end of EACH section add:
+// "What this means:" followed by a one-line implication.
+
+// TASK 3:
+// Incorporate trends if provided:
+// - If trends exist, include a short "Key Trends" section at the top
+
+// TASK 4:
+// Evaluate grounding.
+
+// SCORING:
+// - 0.9–1.0 → fully grounded
+// - 0.75–0.89 → mostly grounded
+// - 0.5–0.74 → partial
+// - <0.5 → hallucinated
+
+// 🚨 OUTPUT FORMAT:
+// EVAL:{"score":0.0,"label":"grounded","flaggedClaims":[]}
+
+// DRAFTS:
+// ${combined}
+
+// ${trendBlock}
+
+// Generate newsletter and evaluation.`,
+//     },
+//   ]);
+
+//   const full = (response.content as string).trim();
+
+//   let newsletter = full;
+//   let score = 0.75;
+//   let label = "partial";
+//   let flaggedClaims: string[] = [];
+
+//   const evalMatch = full.match(/EVAL:\s*(\{[\s\S]*\})/);
+
+//   if (evalMatch) {
+//     newsletter = full.replace(evalMatch[0], "").trim();
+
+//     try {
+//       const parsed = JSON.parse(evalMatch[1]);
+
+//       if (typeof parsed.score === "number") {
+//         score = Math.min(Math.max(parsed.score, 0), 1);
+//       }
+
+//       if (parsed.label) label = parsed.label;
+
+//       if (Array.isArray(parsed.flaggedClaims)) {
+//         flaggedClaims = parsed.flaggedClaims;
+//       }
+//     } catch {
+//       console.warn("[EditorAgent] JSON parse failed");
+//     }
+//   }
+
+//   // 🔥 CLEAN FLAGS
+//   flaggedClaims = flaggedClaims.filter(
+//     (c) =>
+//       c &&
+//       !/AI Newsletter/i.test(c) &&
+//       !/^https?:\/\//i.test(c.trim())
+//   );
+
+//   // 🔥 SMART SEND SIGNAL
+//   const shouldSend = score >= 0.85 && validDrafts.length >= 2;
+
+//   // 🔥 READ TIME CALCULATION
+//   const wordCount = newsletter.split(/\s+/).length;
+//   const readTime = Math.max(1, Math.round(wordCount / 170));
+
+//   // 🔥 SELF ANALYSIS
+//   let analysis = "";
+
+//   try {
+//     const analysisRes = await llm.invoke([
+//       {
+//         role: "user",
+//         content: `Analyze this newsletter briefly.
+
+// Give:
+// - Coverage (High / Medium / Low)
+// - Clarity (High / Medium / Low)
+// - Depth (High / Medium / Low)
+// - Any gap or weakness
+
+// Keep it under 60 words.
+
+// Newsletter:
+// ${newsletter}`,
+//       },
+//     ]);
+
+//     analysis = (analysisRes.content as string).trim();
+//   } catch {
+//     console.warn("[EditorAgent] Analysis failed");
+//     analysis = "Coverage: Medium | Clarity: Medium | Depth: Medium";
+//   }
+
+//   console.log(
+//     `[EditorAgent] Score: ${score} | Label: ${label} | ReadTime: ${readTime} min | Send: ${shouldSend}`
+//   );
+
+//   return {
+//     newsletter,
+//     score,
+//     label,
+//     flaggedClaims,
+//     shouldSend,
+//     readTime,
+//     analysis,
+//   };
+// }  
+
+
 import { llm } from "../llm";
 
 export async function editorAgent(
   drafts: string[],
-  allDocs: any[],
-  trends: string[] = []
+  allDocs: any[]
 ): Promise<{
   newsletter: string;
   score: number;
   label: string;
   flaggedClaims: string[];
   shouldSend: boolean;
-  readTime: number;     // 🔥 NEW
-  analysis: string;     // 🔥 NEW
+  readTime: number;
+  analysis: string;
 }> {
 
   const validDrafts = drafts.filter((d) => {
@@ -733,39 +926,31 @@ export async function editorAgent(
       .trim()
   );
 
-  const truncatedDrafts = cleanedDrafts.map((d) => d.slice(0, 800));
+  // 🔥 INCREASE CONTEXT SIZE (800 → 2000)
+  const truncatedDrafts = cleanedDrafts.map((d) => d.slice(0, 2000));
   const combined = truncatedDrafts.join("\n\n---\n\n");
 
-  // 🔥 FORMAT TRENDS
-  const trendBlock =
-    trends.length > 0
-      ? `\n\nKey Trends:\n${trends.map((t) => `- ${t}`).join("\n")}`
-      : "";
-
+  // 🔥 IMPROVED PROMPT (NO TRENDS + MORE NEWS)
   const response = await llm.invoke([
     {
       role: "user",
-      content: `You are a professional newsletter editor and analyst.
+      content: `You are a professional newsletter editor.
 
-TASK 1:
-Rewrite into a structured newsletter.
+TASK:
+Rewrite the drafts into a structured, high-quality newsletter.
 
+RULES:
 - Start with: AI Newsletter – ${date}
-- Create clear sections
-- Keep concise and factual
-- ONLY use provided drafts
+- DO NOT include a "Key Trends" section
+- Create clear section headings
+- Each section MUST contain 2–3 distinct news items
+- Do NOT overly summarize — preserve important details
+- You may use bullet points inside sections for clarity
+- ONLY use the provided drafts
 
-TASK 2:
-Add insight:
-At the end of EACH section add:
-"What this means:" followed by a one-line implication.
-
-TASK 3:
-Incorporate trends if provided:
-- If trends exist, include a short "Key Trends" section at the top
-
-TASK 4:
-Evaluate grounding.
+INSIGHT:
+At the end of EACH section, add:
+"What this means:" followed by a one-line implication
 
 SCORING:
 - 0.9–1.0 → fully grounded
@@ -778,8 +963,6 @@ EVAL:{"score":0.0,"label":"grounded","flaggedClaims":[]}
 
 DRAFTS:
 ${combined}
-
-${trendBlock}
 
 Generate newsletter and evaluation.`,
     },
