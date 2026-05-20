@@ -954,172 +954,6 @@ export async function sendIngestNotification(
   console.log(`[Mailer] Ingest notification sent to admin`);
 }
 
-// // 🔥 UPDATED: now accepts readTime
-// export function buildEmailHTML(
-//   newsletter: string,
-//   readTime: number
-// ): string {
-//   const sections = newsletter.split("\n\n").filter(Boolean);
-
-//   const bodyHTML = sections
-//     .map((block) => {
-//       const match = block.match(/^\*\*(.*?)\*\*\s*(.*)/s);
-
-//       if (match) {
-//         const title = match[1];
-//         let content = match[2];
-
-//         content = content.replace(
-//           /(\d+–?\d*%?)/g,
-//           `<strong style="color:#6366f1;">$1</strong>`
-//         );
-
-//         return `
-//         <div style="
-//           margin-bottom:28px;
-//           padding:20px;
-//           border:1px solid #e5e7eb;
-//           border-radius:12px;
-//           background:#fafafa;
-//         ">
-//           <h2 style="
-//             font-size:18px;
-//             font-weight:600;
-//             color:#111827;
-//             margin:0 0 10px;
-//           ">
-//             ${title}
-//           </h2>
-
-//           <p style="
-//             font-size:15px;
-//             color:#374151;
-//             line-height:1.7;
-//             margin:0;
-//           ">
-//             ${content}
-//           </p>
-//         </div>
-//         `;
-//       }
-
-//       if (block.startsWith("AI Newsletter")) {
-//         return `
-//           <h1 style="
-//             font-size:22px;
-//             font-weight:700;
-//             color:#111827;
-//             margin:0 0 10px;
-//           ">
-//             ${block}
-//           </h1>
-
-//           <!-- 🔥 READ TIME ADDED HERE -->
-//           <p style="
-//             font-size:12px;
-//             color:#6b7280;
-//             margin-bottom:20px;
-//           ">
-//             🕒 ${readTime} min read
-//           </p>
-//         `;
-//       }
-
-//       return `
-//         <p style="
-//           font-size:15px;
-//           color:#374151;
-//           line-height:1.7;
-//           margin-bottom:14px;
-//         ">
-//           ${block}
-//         </p>
-//       `;
-//     })
-//     .join("");
-
-//   return `
-// <!DOCTYPE html>
-// <html>
-// <body style="
-//   margin:0;
-//   padding:0;
-//   background:#f3f4f6;
-//   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-// ">
-
-// <table width="100%">
-// <tr>
-// <td align="center" style="padding:40px 16px;">
-
-// <table width="600" style="
-//   background:#ffffff;
-//   border-radius:14px;
-//   overflow:hidden;
-// ">
-
-// <tr>
-// <td style="background:#6366f1;padding:28px;">
-//   <h1 style="margin:0;font-size:22px;color:#ffffff;">
-//     Nexus Brief
-//   </h1>
-//   <p style="margin:6px 0 0;color:rgba(255,255,255,0.8);font-size:13px;">
-//     AI · Energy · Geopolitics · India
-//   </p>
-// </td>
-// </tr>
-
-// <tr>
-// <td style="padding:28px;">
-//   ${bodyHTML}
-// </td>
-// </tr>
-
-// <tr>
-// <td style="
-//   padding:20px;
-//   text-align:center;
-//   font-size:12px;
-//   color:#9ca3af;
-//   border-top:1px solid #e5e7eb;
-// ">
-//   You are receiving this because you subscribed to Nexus Brief.
-// </td>
-// </tr>
-
-// </table>
-
-// </td>
-// </tr>
-// </table>
-
-// </body>
-// </html>
-// `;
-// }
-
-// // 🔥 UPDATED: now accepts readTime
-// export async function sendNewsletter(
-//   to: string[],
-//   newsletter: string,
-//   readTime: number
-// ): Promise<void> {
-//   const html = buildEmailHTML(newsletter, readTime);
-
-//   const date = new Date().toLocaleDateString("en-US", {
-//     month: "long", day: "numeric", year: "numeric",
-//   });
-
-//   await transporter.sendMail({
-//     from: `"${process.env.GMAIL_FROM_NAME}" <${process.env.GMAIL_USER}>`,
-//     bcc: to,
-//     subject: `Nexus Brief · ${date}`,
-//     html,
-//   });
-
-//   console.log(`[Mailer] Newsletter sent to ${to.length} subscribers`);
-// }     
-
 export function buildEmailHTML(
   newsletter: string,
   readTime: number
@@ -2133,8 +1967,7 @@ export async function sendWelcomeEmail(email: string) {
     subject,
     html,
   });
-}  
-
+} 
 
 export async function sendIngestReportEmail(
   report: Record<string, number | string>
@@ -2188,4 +2021,4 @@ export async function sendIngestReportEmail(
     subject,
     html,
   });
-}
+}  
